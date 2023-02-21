@@ -9,13 +9,13 @@ let routes = app => {
   router.get("/", homeController.getHome);
 
   // upload photos sur le bucket (crée le bucket si il exist pas)
-  router.post("/upload/:bucket/:userID", uploadController.uploadFiles);
+  router.post("/upload/:bucketName/:userID", uploadController.uploadFiles);
 
   // update la metadata du bucket (pour partager notre bucket à des utilisateurs)
   router.put("/share/:sharedUserID", uploadController.updateBucket);
 
   // récuperer toutes les photos d'un bucket
-  router.get("/get-files/:bucket/:userID", uploadController.getListFiles);
+  router.get("/get-files/:bucketName/:userID", uploadController.getListFiles);
 
   // récupérer une photo
   router.get("/:bucket/:userID/:filename", uploadController.download);

@@ -10,7 +10,7 @@ const mongoClient = new MongoClient(dbConfig.url);
 
 const uploadFiles = async (req, res) => {
   try {
-    const { userID, bucket: bucketName } = req.params
+    const { userID, bucketName } = req.params
     if (!userID || !bucketName) {
       return res.status(400).json({ error: "Please provide userID and bucketName" });
     }
@@ -110,20 +110,26 @@ const getListFiles = async (req, res) => {
   try {
     await mongoClient.connect();
 
-    const { userID, bucket: bucketName } = req.params
+    const { userID, bucketName } = req.params
     if (!userID || !bucketName) {
       return res.status(400).json({ error: "Please provide userID and bucketName" });
     }
 
+    const { sharedUserID } = req.body;
+
     const database = mongoClient.db(dbConfig.database);
 
     // Vérifier que l'on a accès au bucket
+    // ! Il faudra vérifier que l'id récup dans lee jwt est owneer du bucket ou dans les sharedUsers comme ci dessous
     const images = database.collection(`${userID}/${bucketName}.files`);
+    const checkAccessByShare = await images.findOne({ "metadata.sharedUsers": { $elemMatch: { $eq: sharedUserID } } });
+    if (!checkAccessByShare) {
+      return res.status(403).send({
+        message: "You do not own or share access to this file",
+      });
+    }
 
-    // const test = await images.findOne({})
-    // console.log(test)
     const count = await images.countDocuments();
-
     if (count === 0) {
       return res.status(500).send({
         message: "No files found!",
@@ -133,10 +139,9 @@ const getListFiles = async (req, res) => {
     let fileInfos = [];
     const cursor = images.find({});
     await cursor.forEach((doc) => {
-      console.log(doc)
       fileInfos.push({
         name: doc.filename,
-        url: baseUrl + req.params.bucket + '/' + doc.filename,
+        url: baseUrl + req.params.bucketName + '/' + doc.filename,
         metadata: doc.metadata,
         contentType: doc.contentType,
         uploadDate: doc.uploadDate

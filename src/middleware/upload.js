@@ -1,7 +1,6 @@
 const util = require("util");
 const multer = require("multer");
 const dbConfig = require("../config/db");
-const MongoClient = require("mongodb").MongoClient;
 const { GridFsStorage } = require("multer-gridfs-storage");
 
 
@@ -15,7 +14,7 @@ var storage = new GridFsStorage({
     }
 
     return {
-      bucketName: `${req.params.userID}/${req.params.bucket}`,
+      bucketName: `${req.params.userID}/${req.params.bucketName}`,
       filename: `${file.originalname}`,
       metadata: {
         userID: req.params.userID,
