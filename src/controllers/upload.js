@@ -1,5 +1,6 @@
 const upload = require("../middleware/upload");
 const dbConfig = require("../config/db");
+const ObjectID = require('mongodb').ObjectId
 
 const MongoClient = require("mongodb").MongoClient;
 const GridFSBucket = require("mongodb").GridFSBucket;
@@ -14,18 +15,20 @@ const uploadFiles = async (req, res) => {
       return res.status(400).json({ error: "Please provide userID and bucketName" });
     }
 
+    // ! On ne verifie pas que l'id dans le params est le nôtre encore
+
     await mongoClient.connect();
     const database = mongoClient.db(dbConfig.database);
 
     // Vérifier si l'utilisateur existe
-    const user = await database.collection('users').findOne({ email: bucketName });
+    const user = await database.collection('users').findOne({ _id: new ObjectID(userID) });
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur introuvable' });
     }
 
     // Vérifier si l'utilisateur est propriétaire du bucket
     const bucket = await database.collection(`${userID}/${bucketName}.files`).findOne({});
-    if (!bucket || bucket.metadata.userID !== userID) {
+    if (bucket && bucket.metadata.userID !== userID) {
       return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
     }
 
@@ -57,19 +60,27 @@ const uploadFiles = async (req, res) => {
 
 const updateBucket = async (req, res) => {
   try {
-    const { userID, bucket: bucketName } = req.params
+
+    const { userID, bucketName } = req.body
     if (!userID || !bucketName) {
       return res.status(400).json({ error: "Please provide userID and bucketName" });
+    }
+
+    const { sharedUserID } = req.params
+    if (!sharedUserID) {
+      return res.status(400).json({ error: "Please provide the userID you want to share bucket with" });
     }
 
     await mongoClient.connect();
     const database = mongoClient.db(dbConfig.database);
 
     // Vérifier si l'utilisateur existe
-    const user = await database.collection('users').findOne({ email: bucketName });
+    const user = await database.collection('users').findOne({ _id: new ObjectID(userID) });
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur introuvable' });
     }
+
+    // ! Vérifier que le sharedUserID existe, que l'user existe
 
     // Vérifier si l'utilisateur est propriétaire du bucket
     const bucket = await database.collection(`${userID}/${bucketName}.files`).findOne({});
@@ -80,13 +91,13 @@ const updateBucket = async (req, res) => {
     // Update the metadata to add the new shared user ID
     const result = await database.collection(`${userID}/${bucketName}.files`).updateMany(
       { "metadata.userID": userID },
-      { $push: { "metadata.sharedUsers": "12" } }
+      { $push: { "metadata.sharedUsers": req.params.sharedUserID } }
     );
-    console.log(result)
 
-    if (result.modifiedCount !== 1) {
+    if (result.modifiedCount === 0) {
       return res.status(500).json({ error: 'Failed to update metadata' });
     }
+    return res.status(200).json({ message: `userID: ${req.params.sharedUserID} has access to bucket ${userID}/${bucketName}` })
   } catch (error) {
     console.log(error)
     return res.status(500).send({
@@ -105,8 +116,12 @@ const getListFiles = async (req, res) => {
     }
 
     const database = mongoClient.db(dbConfig.database);
+
+    // Vérifier que l'on a accès au bucket
     const images = database.collection(`${userID}/${bucketName}.files`);
 
+    // const test = await images.findOne({})
+    // console.log(test)
     const count = await images.countDocuments();
 
     if (count === 0) {
@@ -118,9 +133,13 @@ const getListFiles = async (req, res) => {
     let fileInfos = [];
     const cursor = images.find({});
     await cursor.forEach((doc) => {
+      console.log(doc)
       fileInfos.push({
         name: doc.filename,
         url: baseUrl + req.params.bucket + '/' + doc.filename,
+        metadata: doc.metadata,
+        contentType: doc.contentType,
+        uploadDate: doc.uploadDate
       });
     });
 
