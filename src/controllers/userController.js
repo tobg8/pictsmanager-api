@@ -1,9 +1,10 @@
-const dbConfig = require("../config/db");
-const bcrypt = require('bcryptjs');
+import { hash, compare } from 'bcryptjs';
+import { MongoClient } from "mongodb";
 
-const MongoClient = require("mongodb").MongoClient;
-const mongoClient = new MongoClient(dbConfig.url);
-const db = mongoClient.db(dbConfig.database);
+import { url, database } from "../config/db";
+
+const mongoClient = new MongoClient(url);
+const db = mongoClient.db(database);
 
 const signup = async (req, res) => {
   const { email, password } = req.body;
@@ -21,7 +22,7 @@ const signup = async (req, res) => {
     return res.status(409).send({ message: 'user already exists' });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await hash(password, 10);
 
   await db.collection('users').insertOne({ email: email, password: hashedPassword });
 
@@ -49,7 +50,7 @@ const login = async (req, res) => {
   }
 
   // Compare the password with the hashed password in the database
-  const isMatch = await bcrypt.compare(password, user.password);
+  const isMatch = await compare(password, user.password);
   if (!isMatch) {
     return res.status(401).send('Invalid credentials');
   }
@@ -63,7 +64,7 @@ const login = async (req, res) => {
   })
 }
 
-module.exports = {
+export default {
   signup,
   login
 };

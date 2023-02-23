@@ -1,12 +1,13 @@
-const upload = require("../middleware/upload");
-const dbConfig = require("../config/db");
-const ObjectID = require('mongodb').ObjectId
 
-const MongoClient = require("mongodb").MongoClient;
-const GridFSBucket = require("mongodb").GridFSBucket;
+import { ObjectId as ObjectID } from 'mongodb';
+import { MongoClient } from "mongodb";
+import { GridFSBucket } from "mongodb";
+
+import upload from "../middleware/upload";
+import { url as _url, database as _database } from "../config/db";
+
 const baseUrl = "http://localhost:8080/";
-
-const mongoClient = new MongoClient(dbConfig.url);
+const mongoClient = new MongoClient(_url);
 
 const uploadFiles = async (req, res) => {
   try {
@@ -18,7 +19,7 @@ const uploadFiles = async (req, res) => {
     // ! On ne verifie pas que l'id dans le params est le nôtre encore
 
     await mongoClient.connect();
-    const database = mongoClient.db(dbConfig.database);
+    const database = mongoClient.db(_database);
 
     // Vérifier si l'utilisateur existe
     const user = await database.collection('users').findOne({ _id: new ObjectID(userID) });
@@ -72,7 +73,7 @@ const updateBucket = async (req, res) => {
     }
 
     await mongoClient.connect();
-    const database = mongoClient.db(dbConfig.database);
+    const database = mongoClient.db(_database);
 
     // Vérifier si l'utilisateur existe
     const user = await database.collection('users').findOne({ _id: new ObjectID(userID) });
@@ -117,7 +118,7 @@ const getListFiles = async (req, res) => {
 
     const { sharedUserID } = req.body;
 
-    const database = mongoClient.db(dbConfig.database);
+    const database = mongoClient.db(_database);
 
     // Vérifier que l'on a accès au bucket
     // ! Il faudra vérifier que l'id récup dans lee jwt est owneer du bucket ou dans les sharedUsers comme ci dessous
@@ -168,7 +169,7 @@ const download = async (req, res) => {
     }
 
 
-    const database = mongoClient.db(dbConfig.database);
+    const database = mongoClient.db(_database);
     const bucket = new GridFSBucket(database, {
       bucketName: `${userID}/${bucketName}`,
     });
@@ -196,7 +197,7 @@ const download = async (req, res) => {
 
 
 
-module.exports = {
+export default {
   uploadFiles,
   getListFiles,
   download,

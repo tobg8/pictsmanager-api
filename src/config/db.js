@@ -1,5 +1,3 @@
-module.exports = {
-  url: "mongodb://localhost:27017/",
-  database: "pictsmanager",
-  imgBucket: "photos",
-};
+export const url = "mongodb://localhost:27017/";
+export const database = "pictsmanager";
+export const imgBucket = "photos";
