@@ -11,19 +11,39 @@ const authentifyOwnershipOnBucket = async (userID, bucketName) => {
     const database = mongoClient.db(_database);
 
     const bucket = await database.collection(`${userID}/${bucketName}.files`).findOne({});
-    console.log(bucket)
-    console.log(userID, bucket.metadata.userID)
+
     // Si j'ai pas de bucket, ca veut dire je le crée je deviens owner donc je laisse passer
-    if (bucket && bucket.metadata.userID !== userID) {
+    if (bucket && bucket?.metadata?.userID !== userID) {
       return false
     }
 
-    return bucket
+    return true
   } catch (error) {
-    console.log('🙂')
     console.log('error in authentifyOwnershipBucket', error)
   }
-
 }
 
-module.exports = { authentifyOwnershipOnBucket }
+const checkAccessToBucket = async (bucketName, userID) => {
+  try {
+    await mongoClient.connect();
+    const database = mongoClient.db(_database);
+
+    const bucket = await database.collection(`${bucketName}.files`).findOne({});
+
+    if (!bucket) {
+      return false
+    }
+
+    const bucketAccess = bucket.metadata.sharedUsers.find((id) => id === userID)
+
+    if (!bucketAccess && bucket.metadata.userID !== userID) {
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.log('error in authentifyOwnershipBucket', error)
+  }
+}
+
+module.exports = { authentifyOwnershipOnBucket, checkAccessToBucket }

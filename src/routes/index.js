@@ -15,13 +15,13 @@ let routes = app => {
   router.post("/upload/:bucketName", verifyToken, uploadFiles);
 
   // update la metadata du bucket (pour partager notre bucket à des utilisateurs)
-  router.put("/share/:sharedUserID", updateBucket);
+  router.put("/share/:sharedUserID/:bucketName", verifyToken, updateBucket);
 
   // récuperer toutes les photos d'un bucket
-  router.get("/get-files/:bucketName", verifyToken, getListFiles);
+  router.get("/get-files", verifyToken, getListFiles);
 
   // récupérer une photo
-  router.get("/:bucket/:filename", verifyToken, download);
+  router.get("/download/:fileName", verifyToken, download);
 
   router.post("/sign-up", signup)
   router.post("/login", login)

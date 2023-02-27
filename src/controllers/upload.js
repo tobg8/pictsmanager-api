@@ -5,7 +5,7 @@ const { GridFSBucket } = require("mongodb");
 
 const upload = require("../middleware/upload");
 const { url: _url, database: _database } = require("../config/db");
-const { authentifyOwnershipOnBucket } = require('../db/helpers/authentify')
+const { authentifyOwnershipOnBucket, checkAccessToBucket } = require('../db/helpers/authentify')
 
 const baseUrl = "http://localhost:8080/";
 const mongoClient = new MongoClient(_url);
@@ -13,7 +13,6 @@ const mongoClient = new MongoClient(_url);
 const uploadFiles = async (req, res) => {
   try {
     const { id: userID } = req.user
-
     const { bucketName } = req.params
     if (!bucketName) {
       return res.status(400).json({ error: "Please provide bucketName" });
@@ -62,13 +61,8 @@ const uploadFiles = async (req, res) => {
 
 const updateBucket = async (req, res) => {
   try {
-
-    const { userID, bucketName } = req.body
-    if (!userID || !bucketName) {
-      return res.status(400).json({ error: "Please provide userID and bucketName" });
-    }
-
-    const { sharedUserID } = req.params
+    const { id: userID } = req.user
+    const { sharedUserID, bucketName } = req.params
     if (!sharedUserID) {
       return res.status(400).json({ error: "Please provide the userID you want to share bucket with" });
     }
@@ -76,30 +70,28 @@ const updateBucket = async (req, res) => {
     await mongoClient.connect();
     const database = mongoClient.db(_database);
 
-    // Vérifier si l'utilisateur existe
-    const user = await database.collection('users').findOne({ _id: new ObjectId(userID) });
-    if (!user) {
+    // Vérifier si l'utilisateur à qui on doit partager existe
+    const sharedUser = await database.collection('users').findOne({ _id: new ObjectId(sharedUserID) });
+    if (!sharedUser) {
       return res.status(404).json({ error: 'Utilisateur introuvable' });
     }
 
-    // ! Vérifier que le sharedUserID existe, que l'user existe
-
-    // Vérifier si l'utilisateur est propriétaire du bucket
+    // Vérifier si l'utilisateur a un bucket de ce nom
     const bucket = await database.collection(`${userID}/${bucketName}.files`).findOne({});
-    if (!bucket || bucket.metadata.userID !== userID) {
-      return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
+    if (!bucket) {
+      return res.status(404).json({ error: `Le bucket: ${userID}/${bucketName} est introuvable` });
     }
 
     // Update the metadata to add the new shared user ID
     const result = await database.collection(`${userID}/${bucketName}.files`).updateMany(
       { "metadata.userID": userID },
-      { $push: { "metadata.sharedUsers": req.params.sharedUserID } }
+      { $push: { "metadata.sharedUsers": sharedUserID } }
     );
 
     if (result.modifiedCount === 0) {
-      return res.status(500).json({ error: 'Failed to update metadata' });
+      return res.status(500).json({ error: 'Failed to update bucket permissions' });
     }
-    return res.status(200).json({ message: `userID: ${req.params.sharedUserID} has access to bucket ${userID}/${bucketName}` })
+    return res.status(200).json({ message: `user: ${sharedUserID} has access to bucket ${userID}/${bucketName}` })
   } catch (error) {
     console.log(error)
     return res.status(500).send({
@@ -113,25 +105,20 @@ const getListFiles = async (req, res) => {
     await mongoClient.connect();
 
     const { id: userID } = req.user
-    const { bucketName } = req.params
+    const { bucketName } = req.body
     if (!bucketName) {
       return res.status(400).json({ error: "Please provide bucketName" });
     }
 
-    const { sharedUserID } = req.body;
-
     const database = mongoClient.db(_database);
 
-    // Vérifier que l'on a accès au bucket
-    // ! Il faudra vérifier que l'id récup dans lee jwt est owneer du bucket ou dans les sharedUsers comme ci dessous
-    const images = database.collection(`${userID}/${bucketName}.files`);
-    const checkAccessByShare = await images.findOne({ "metadata.sharedUsers": { $elemMatch: { $eq: sharedUserID } } });
-    if (!checkAccessByShare) {
-      return res.status(403).send({
-        message: "You do not own or share access to this file",
-      });
+    // Vérifier que le userID est soit le détenteur soit un sharedUser du bucket
+    const checkBucketAccess = await checkAccessToBucket(bucketName, userID)
+    if (checkBucketAccess === false) {
+      return res.status(403).json({ error: "L'utilisateur n'a pas les droits sur ce bucket" });
     }
 
+    const images = database.collection(`${bucketName}.files`);
     const count = await images.countDocuments();
     if (count === 0) {
       return res.status(500).send({
@@ -163,20 +150,28 @@ const download = async (req, res) => {
   try {
     await mongoClient.connect();
     const { id: userID } = req.user
-    const { bucket: bucketName, filename } = req.params
-    if (!bucketName || !filename) {
+    const { bucketName } = req.body
+    const { fileName } = req.params
+
+    if (!bucketName || !fileName) {
       return res.status(400).send({
         message: "Invalid query"
       })
     }
 
-
     const database = mongoClient.db(_database);
+
+    // Vérifier que le userID est soit le détenteur soit un sharedUser du bucket
+    const checkBucketAccess = await checkAccessToBucket(bucketName, userID)
+    if (checkBucketAccess === false) {
+      return res.status(403).json({ error: "L'utilisateur n'a pas les droits sur ce bucket" });
+    }
+
     const bucket = new GridFSBucket(database, {
-      bucketName: `${userID}/${bucketName}`,
+      bucketName: `${bucketName}`,
     });
 
-    let downloadStream = bucket.openDownloadStreamByName(req.params.filename);
+    let downloadStream = bucket.openDownloadStreamByName(fileName);
 
     downloadStream.on("data", function (data) {
       return res.status(200).write(data);
