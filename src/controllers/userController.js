@@ -1,7 +1,8 @@
-import { hash, compare } from 'bcryptjs';
-import { MongoClient } from "mongodb";
+const { hash, compare } = require('bcryptjs');
+const { MongoClient } = require("mongodb");
 
-import { url, database } from "../config/db";
+const { url, database } = require("../config/db");
+const { generateToken } = require('../middleware/jwt');
 
 const mongoClient = new MongoClient(url);
 const db = mongoClient.db(database);
@@ -55,16 +56,16 @@ const login = async (req, res) => {
     return res.status(401).send('Invalid credentials');
   }
 
-
-  // ! Faire le token jwt ici
+  const token = generateToken(user);
 
   return res.status(200).send({
     email: user.email,
-    id: user._id
+    id: user._id,
+    jwt_token: token
   })
 }
 
-export default {
+module.exports = {
   signup,
   login
 };

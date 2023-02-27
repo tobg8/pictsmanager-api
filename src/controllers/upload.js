@@ -1,35 +1,36 @@
 
-import { ObjectId as ObjectID } from 'mongodb';
-import { MongoClient } from "mongodb";
-import { GridFSBucket } from "mongodb";
+const { ObjectId } = require('mongodb');
+const { MongoClient } = require("mongodb");
+const { GridFSBucket } = require("mongodb");
 
-import upload from "../middleware/upload";
-import { url as _url, database as _database } from "../config/db";
+const upload = require("../middleware/upload");
+const { url: _url, database: _database } = require("../config/db");
+const { authentifyOwnershipOnBucket } = require('../db/helpers/authentify')
 
 const baseUrl = "http://localhost:8080/";
 const mongoClient = new MongoClient(_url);
 
 const uploadFiles = async (req, res) => {
   try {
-    const { userID, bucketName } = req.params
-    if (!userID || !bucketName) {
-      return res.status(400).json({ error: "Please provide userID and bucketName" });
-    }
+    const { id: userID } = req.user
 
-    // ! On ne verifie pas que l'id dans le params est le nôtre encore
+    const { bucketName } = req.params
+    if (!bucketName) {
+      return res.status(400).json({ error: "Please provide bucketName" });
+    }
 
     await mongoClient.connect();
     const database = mongoClient.db(_database);
 
     // Vérifier si l'utilisateur existe
-    const user = await database.collection('users').findOne({ _id: new ObjectID(userID) });
+    const user = await database.collection('users').findOne({ _id: new ObjectId(userID) });
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur introuvable' });
     }
 
     // Vérifier si l'utilisateur est propriétaire du bucket
-    const bucket = await database.collection(`${userID}/${bucketName}.files`).findOne({});
-    if (bucket && bucket.metadata.userID !== userID) {
+    const bucket = await authentifyOwnershipOnBucket(userID, bucketName)
+    if (bucket === false) {
       return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
     }
 
@@ -76,7 +77,7 @@ const updateBucket = async (req, res) => {
     const database = mongoClient.db(_database);
 
     // Vérifier si l'utilisateur existe
-    const user = await database.collection('users').findOne({ _id: new ObjectID(userID) });
+    const user = await database.collection('users').findOne({ _id: new ObjectId(userID) });
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur introuvable' });
     }
@@ -111,9 +112,10 @@ const getListFiles = async (req, res) => {
   try {
     await mongoClient.connect();
 
-    const { userID, bucketName } = req.params
-    if (!userID || !bucketName) {
-      return res.status(400).json({ error: "Please provide userID and bucketName" });
+    const { id: userID } = req.user
+    const { bucketName } = req.params
+    if (!bucketName) {
+      return res.status(400).json({ error: "Please provide bucketName" });
     }
 
     const { sharedUserID } = req.body;
@@ -160,9 +162,9 @@ const getListFiles = async (req, res) => {
 const download = async (req, res) => {
   try {
     await mongoClient.connect();
-
-    const { userID, bucket: bucketName, filename } = req.params
-    if (!bucketName || !filename || !userID) {
+    const { id: userID } = req.user
+    const { bucket: bucketName, filename } = req.params
+    if (!bucketName || !filename) {
       return res.status(400).send({
         message: "Invalid query"
       })
@@ -197,7 +199,7 @@ const download = async (req, res) => {
 
 
 
-export default {
+module.exports = {
   uploadFiles,
   getListFiles,
   download,
