@@ -5,10 +5,11 @@
 # Guideline
 - Les imports se font dans un ordre précis (librarie externe, puis import interne) = (importer express avant d'importer le controller)
 
-🔒 JWT </br>
-⚠️ Les buckets sont crées via un format spécial, les bucketName sont composés de l'id dee l'utilisateur ainsi que le nom du bucket qu'il a donné. Exemple = 1212322344/wow
 
 # Routes
+
+🔒 JWT </br>
+⚠️ Les buckets sont crées sous un format spécial, les bucketName sont composés de l'id de l'utilisateur ainsi que le nom du bucket qu'il a envoyé.</br> Exemple = 1212322344/wow
 
    ### upload files (max 10) to bucket
     - router.post("/upload/:bucketName", verifyToken, uploadFiles) 🔒
