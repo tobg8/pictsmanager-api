@@ -130,7 +130,6 @@ const getListFiles = async (req, res) => {
     const cursor = images.find({});
 
     await cursor.forEach((doc) => {
-      console.log(doc)
       fileInfos.push({
         id: doc._id,
         length: doc.length,
@@ -295,6 +294,43 @@ const deleteFile = async (req, res) => {
   }
 }
 
+const updateFileName = async (req, res) => {
+  const { id: userID } = req.user
+  const { bucketName, fileID } = req.params
+  const { newBucketName } = req.body
+  if (!userID || !bucketName || !fileID || !newBucketName) {
+    return res.status(400).json({ error: "UserID bucketName ou filename ou newBucketName non renseignés" })
+  }
+
+  // Vérifier si l'utilisateur est propriétaire du bucket
+  const bucket = await authentifyOwnershipOnBucket(userID, bucketName)
+  if (bucket === false) {
+    return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
+  }
+
+  try {
+    // Query d'update
+    await mongoClient.connect();
+    const database = mongoClient.db(_database);
+
+    const filesColl = database.collection(`${userID}/${bucketName}.files`);
+
+    const file = await filesColl.findOne({ _id: new ObjectId(fileID) });
+    if (!file) {
+      return res.status(404).json({ error: "Fichier non trouvé" });
+    }
+
+
+    const fileType = file.filename.split('.')[1]
+    const newName = newBucketName + '.' + fileType;
+    await filesColl.updateOne({ _id: new ObjectId(fileID) }, { $set: { filename: newName } });
+    return res.status(200).json({ message: `file '${file.filename}' has been renamed to '${newBucketName}.${fileType}' ` });
+  } catch (err) {
+    console.log(err)
+    return res.status(500).json({ error: 'Something went wrong in update bucket file name' })
+  }
+}
+
 
 
 module.exports = {
@@ -304,5 +340,6 @@ module.exports = {
   updateBucketPermissions,
   updateBucketName,
   deleteBucket,
-  deleteFile
+  deleteFile,
+  updateFileName
 };

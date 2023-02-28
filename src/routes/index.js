@@ -7,13 +7,13 @@ const { uploadFiles,
   updateBucketPermissions,
   updateBucketName,
   deleteBucket,
-  deleteFile } = require("../controllers/upload");
+  deleteFile,
+  updateFileName } = require("../controllers/upload");
 const { signup, login } = require("../controllers/userController");
 
 const router = Router();
 const { verifyToken } = require('../middleware/jwt')
 
-//! Toutes les paramètres :userID doivent être enlevé, on aura un middleware jwt pour récup ça.
 let routes = app => {
   router.get("/", getHome);
   // GET
@@ -34,6 +34,8 @@ let routes = app => {
   router.put("/share/:sharedUserID/:bucketName", verifyToken, updateBucketPermissions);
   // update le nom du bucket
   router.put("/update/:bucketName", verifyToken, updateBucketName)
+  // update le nom d'une file
+  router.put("/update/:bucketName/:fileID", verifyToken, updateFileName)
 
   // DELETE
   // delete un bucket
