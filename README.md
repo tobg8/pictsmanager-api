@@ -36,3 +36,9 @@
   ### login
     - router.post("/login", login)
        - dans body = email password
+
+  ### rename bucket name
+    - router.put("/update/:bucketName", verifyToken, updateBucketName)  🔒
+      - bucketName = nom du bucket (sans ID)
+      - req.body = newBucketName = nouveau nom du bucket
+
