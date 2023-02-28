@@ -1,7 +1,7 @@
 const { Router } = require("express");
 
 const { getHome } = require("../controllers/home");
-const { uploadFiles, updateBucket, getListFiles, download } = require("../controllers/upload");
+const { uploadFiles, getListFiles, download, updateBucketPermissions, updateBucketName } = require("../controllers/upload");
 const { signup, login } = require("../controllers/userController");
 
 const router = Router();
@@ -15,7 +15,10 @@ let routes = app => {
   router.post("/upload/:bucketName", verifyToken, uploadFiles);
 
   // update la metadata du bucket (pour partager notre bucket à des utilisateurs)
-  router.put("/share/:sharedUserID/:bucketName", verifyToken, updateBucket);
+  router.put("/share/:sharedUserID/:bucketName", verifyToken, updateBucketPermissions);
+
+  // update le nom du bucket
+  router.put("/update/:bucketName", verifyToken, updateBucketName)
 
   // récuperer toutes les photos d'un bucket
   router.get("/get-files", verifyToken, getListFiles);

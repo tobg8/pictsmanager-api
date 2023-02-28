@@ -59,7 +59,7 @@ const uploadFiles = async (req, res) => {
   }
 };
 
-const updateBucket = async (req, res) => {
+const updateBucketPermissions = async (req, res) => {
   try {
     const { id: userID } = req.user
     const { sharedUserID, bucketName } = req.params
@@ -131,7 +131,7 @@ const getListFiles = async (req, res) => {
     await cursor.forEach((doc) => {
       fileInfos.push({
         name: doc.filename,
-        url: baseUrl + req.params.bucketName + '/' + doc.filename,
+        url: baseUrl + bucketName + '/' + doc.filename,
         metadata: doc.metadata,
         contentType: doc.contentType,
         uploadDate: doc.uploadDate
@@ -148,7 +148,6 @@ const getListFiles = async (req, res) => {
 
 const download = async (req, res) => {
   try {
-    await mongoClient.connect();
     const { id: userID } = req.user
     const { bucketName } = req.body
     const { fileName } = req.params
@@ -159,7 +158,9 @@ const download = async (req, res) => {
       })
     }
 
+    await mongoClient.connect();
     const database = mongoClient.db(_database);
+
 
     // Vérifier que le userID est soit le détenteur soit un sharedUser du bucket
     const checkBucketAccess = await checkAccessToBucket(bucketName, userID)
@@ -178,7 +179,6 @@ const download = async (req, res) => {
     });
 
     downloadStream.on("error", function (err) {
-      console.log(err)
       return res.status(404).send({ message: err });
     });
 
@@ -192,11 +192,48 @@ const download = async (req, res) => {
   }
 };
 
+const updateBucketName = async (req, res) => {
+  const { id: userID } = req.user
+  const { bucketName } = req.params
+  const { newBucketName } = req.body
+
+  if (!userID || !newBucketName || !bucketName) {
+    return res.status(400).json({ error: "UserID ou bucketName non renseignés" })
+  }
+
+  // Vérifier si l'utilisateur est propriétaire du bucket
+  const bucket = await authentifyOwnershipOnBucket(userID, bucketName)
+  if (bucket === false) {
+    return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
+  }
+
+  await mongoClient.connect();
+  const database = mongoClient.db(_database);
+
+  // I want to update the bucket userID/bucketName
+  try {
+    const files = database.collection(`${userID}/${bucketName}.files`)
+    const chunks = database.collection(`${userID}/${bucketName}.chunks`)
+
+    await files.rename(`${userID}/${newBucketName}.files`)
+    await chunks.rename(`${userID}/${newBucketName}.chunks`)
+
+    return res.status(200).json("Bucket updated successfully")
+  } catch (err) {
+    console.error(err);
+    if (err.code === 26) {
+      return res.status(404).json({ error: "Bucket not found", err });
+    }
+    return res.status(500).json({ error: "Failed to update bucket name", err });
+  }
+}
+
 
 
 module.exports = {
   uploadFiles,
   getListFiles,
   download,
-  updateBucket
+  updateBucketPermissions,
+  updateBucketName
 };
