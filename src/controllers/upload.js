@@ -131,7 +131,7 @@ const getListFiles = async (req, res) => {
     await cursor.forEach((doc) => {
       fileInfos.push({
         name: doc.filename,
-        url: baseUrl + bucketName + '/' + doc.filename,
+        url: baseUrl + 'download' + '/' + bucketName + '/' + doc.filename,
         metadata: doc.metadata,
         contentType: doc.contentType,
         uploadDate: doc.uploadDate
@@ -149,14 +149,15 @@ const getListFiles = async (req, res) => {
 const download = async (req, res) => {
   try {
     const { id: userID } = req.user
-    const { bucketName } = req.body
-    const { fileName } = req.params
+    let { fileName, bucketName, id } = req.params
 
     if (!bucketName || !fileName) {
       return res.status(400).send({
         message: "Invalid query"
       })
     }
+
+    bucketName = `${id}/${bucketName}`
 
     await mongoClient.connect();
     const database = mongoClient.db(_database);

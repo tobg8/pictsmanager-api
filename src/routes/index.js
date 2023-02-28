@@ -24,7 +24,7 @@ let routes = app => {
   router.get("/get-files", verifyToken, getListFiles);
 
   // récupérer une photo
-  router.get("/download/:fileName", verifyToken, download);
+  router.get("/download/:id/:bucketName/:fileName", verifyToken, download);
 
   router.post("/sign-up", signup)
   router.post("/login", login)
