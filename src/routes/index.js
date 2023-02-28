@@ -1,7 +1,7 @@
 const { Router } = require("express");
 
 const { getHome } = require("../controllers/home");
-const { uploadFiles, getListFiles, download, updateBucketPermissions, updateBucketName } = require("../controllers/upload");
+const { uploadFiles, getListFiles, download, updateBucketPermissions, updateBucketName, deleteBucket } = require("../controllers/upload");
 const { signup, login } = require("../controllers/userController");
 
 const router = Router();
@@ -19,6 +19,9 @@ let routes = app => {
 
   // update le nom du bucket
   router.put("/update/:bucketName", verifyToken, updateBucketName)
+
+  // delete un bucket
+  router.delete("/delete/:bucketName", verifyToken, deleteBucket)
 
   // récuperer toutes les photos d'un bucket
   router.get("/get-files", verifyToken, getListFiles);

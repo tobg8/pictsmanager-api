@@ -219,9 +219,43 @@ const updateBucketName = async (req, res) => {
     await files.rename(`${userID}/${newBucketName}.files`)
     await chunks.rename(`${userID}/${newBucketName}.chunks`)
 
-    return res.status(200).json("Bucket updated successfully")
+    return res.status(200).json(`Bucket '${bucketName}' updated succesfully to '${newBucketName}'`)
   } catch (err) {
     console.error(err);
+    if (err.code === 26) {
+      return res.status(404).json({ error: "Bucket not found", err });
+    }
+    if (err.code === 20) {
+      return res.status(400).json({ error: "New bucket name is the same as previous", err });
+    }
+    return res.status(500).json({ error: "Failed to update bucket name", err });
+  }
+}
+
+const deleteBucket = async (req, res) => {
+  const { id: userID } = req.user
+  const { bucketName } = req.params
+
+  if (!userID || !bucketName) {
+    return res.status(400).json({ error: "UserID ou bucketName non renseignés" })
+  }
+
+  // Vérifier si l'utilisateur est propriétaire du bucket
+  const bucket = await authentifyOwnershipOnBucket(userID, bucketName)
+  if (bucket === false) {
+    return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
+  }
+
+  await mongoClient.connect();
+  const database = mongoClient.db(_database);
+
+  try {
+    // Drop the files and chunks collections
+    await database.collection(`${userID}/${bucketName}.files`).drop();
+    await database.collection(`${userID}/${bucketName}.chunks`).drop();
+
+    return res.status(200).json(`Bucket '${bucketName}' deleted`)
+  } catch (err) {
     if (err.code === 26) {
       return res.status(404).json({ error: "Bucket not found", err });
     }
@@ -236,5 +270,6 @@ module.exports = {
   getListFiles,
   download,
   updateBucketPermissions,
-  updateBucketName
+  updateBucketName,
+  deleteBucket
 };
