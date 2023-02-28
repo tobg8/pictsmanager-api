@@ -12,7 +12,7 @@ const storage = new GridFsStorage({
     try {
       const match = ["image/png", "image/jpeg"];
       if (match.indexOf(file.mimetype) === -1) {
-        throw new Error('File type incorrect');
+        return new Error('File type incorrect');
       }
 
       return {

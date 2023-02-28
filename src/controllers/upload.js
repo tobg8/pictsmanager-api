@@ -115,7 +115,7 @@ const getListFiles = async (req, res) => {
     // Vérifier que le userID est soit le détenteur soit un sharedUser du bucket
     const checkBucketAccess = await checkAccessToBucket(bucketName, userID)
     if (checkBucketAccess === false) {
-      return res.status(403).json({ error: "L'utilisateur n'a pas les droits sur ce bucket" });
+      return res.status(403).json({ error: "L'utilisateur n'a pas les droits sur ce bucket ou ce bucket est vide" });
     }
 
     const images = database.collection(`${bucketName}.files`);
@@ -128,8 +128,13 @@ const getListFiles = async (req, res) => {
 
     let fileInfos = [];
     const cursor = images.find({});
+
     await cursor.forEach((doc) => {
+      console.log(doc)
       fileInfos.push({
+        id: doc._id,
+        length: doc.length,
+        chunkSize: doc.chunkSize,
         name: doc.filename,
         url: baseUrl + 'download' + '/' + bucketName + '/' + doc.filename,
         metadata: doc.metadata,
@@ -263,6 +268,33 @@ const deleteBucket = async (req, res) => {
   }
 }
 
+const deleteFile = async (req, res) => {
+  const { id: userID } = req.user
+  const { bucketName, fileID } = req.params
+
+  if (!userID || !bucketName || !fileID) {
+    return res.status(400).json({ error: "UserID bucketName ou filename non renseignés" })
+  }
+
+  // Vérifier si l'utilisateur est propriétaire du bucket
+  const bucket = await authentifyOwnershipOnBucket(userID, bucketName)
+  if (bucket === false) {
+    return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
+  }
+
+  await mongoClient.connect();
+  const database = mongoClient.db(_database);
+
+  try {
+    const file = database.collection(`${userID}/${bucketName}.files`)
+    await file.deleteOne({ _id: new ObjectId(fileID) })
+
+    return res.status(200).json(`file '${fileID}' deleted`)
+  } catch (err) {
+    console.log(err)
+  }
+}
+
 
 
 module.exports = {
@@ -271,5 +303,6 @@ module.exports = {
   download,
   updateBucketPermissions,
   updateBucketName,
-  deleteBucket
+  deleteBucket,
+  deleteFile
 };
