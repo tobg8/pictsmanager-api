@@ -100,7 +100,7 @@ const updateBucketPermissions = async (req, res) => {
   }
 };
 
-const getListFiles = async (req, res) => {
+const getFolderFiles = async (req, res) => {
   try {
     await mongoClient.connect();
 
@@ -298,9 +298,6 @@ const updateFileName = async (req, res) => {
   const { id: userID } = req.user
   const { bucketName, fileID } = req.params
   const { newBucketName } = req.body
-  if (!userID || !bucketName || !fileID || !newBucketName) {
-    return res.status(400).json({ error: "UserID bucketName ou filename ou newBucketName non renseignés" })
-  }
 
   // Vérifier si l'utilisateur est propriétaire du bucket
   const bucket = await authentifyOwnershipOnBucket(userID, bucketName)
@@ -331,15 +328,74 @@ const updateFileName = async (req, res) => {
   }
 }
 
+const getFolders = async (req, res) => {
+  const { id: userID } = req.user
+
+  // Je veux récupérer tous les folders qui m'appartiennent ou qui me sont partagés.
+  await mongoClient.connect();
+  const database = mongoClient.db(_database);
+
+  try {
+    const folders = await database.listCollections().toArray();
+
+    // On récupère les folders qui sont détenus par le userID, et on ne garde que les .files (pour pas recevoir chunks et files)
+    const ownFolders = folders
+      .filter(collection => collection.name.startsWith(userID) && collection.name.endsWith('.files'))
+
+    const getSharedFolders = async () => {
+      const response = []
+      for (const folder of folders) {
+        const bucket = await database.collection(folder.name).findOne({});
+        const bucketAccess = bucket.metadata?.sharedUsers?.find((id) => id === userID)
+
+        if (bucketAccess) {
+          const numFiles = await database.collection(folder.name).countDocuments();
+          const owner = await database.collection("users").findOne({ _id: new ObjectId(folder.name.split("/")[0]) })
+
+          response.push({
+            // le folder name ressemble à ça 23212346/name.files, on veut just "name"
+            name: folder.name.substring(folder.name.indexOf("/") + 1, folder.name.lastIndexOf(".")),
+            fileNumber: numFiles,
+            owner: {
+              id: owner._id,
+              email: owner.email,
+            }
+          })
+        }
+      }
+
+      return response
+    }
+
+    const sharedFolders = await getSharedFolders()
+    const responseFolders = [...sharedFolders]
+    for (const folder of ownFolders) {
+      // Pour chacun des folders on veut le nombre de files
+      const numFiles = await database.collection(folder.name).countDocuments();
+      responseFolders.push({
+        // le folder name ressemble à ça 23212346/name.files, on veut just "name"
+        name: folder.name.substring(folder.name.indexOf("/") + 1, folder.name.lastIndexOf(".")),
+        fileNumber: numFiles
+      })
+    }
+
+    return res.status(200).json(responseFolders)
+  } catch (error) {
+    console.log(error)
+    return res.status(500).json({ error: "internal error" })
+  }
+}
+
 
 
 module.exports = {
   uploadFiles,
-  getListFiles,
+  getFolderFiles,
   download,
   updateBucketPermissions,
   updateBucketName,
   deleteBucket,
   deleteFile,
-  updateFileName
+  updateFileName,
+  getFolders
 };

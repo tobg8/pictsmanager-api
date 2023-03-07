@@ -2,13 +2,15 @@ const { Router } = require("express");
 
 const { getHome } = require("../controllers/home");
 const { uploadFiles,
-  getListFiles,
+  getFolderFiles,
   download,
   updateBucketPermissions,
   updateBucketName,
   deleteBucket,
   deleteFile,
-  updateFileName } = require("../controllers/upload");
+  updateFileName,
+  getFolders,
+} = require("../controllers/upload");
 const { signup, login } = require("../controllers/userController");
 
 const router = Router();
@@ -18,9 +20,11 @@ let routes = app => {
   router.get("/", getHome);
   // GET
   // récuperer toutes les photos d'un bucket
-  router.get("/get-files", verifyToken, getListFiles);
+  router.get("/get-files", verifyToken, getFolderFiles);
   // récupérer une photo
   router.get("/download/:id/:bucketName/:fileName", verifyToken, download);
+  // Récupérer tous les folders que je possède ou qui me sont partagés
+  router.get("/get-folders", verifyToken, getFolders);
 
   // POST
   // upload photos sur le bucket (crée le bucket si il exist pas)
