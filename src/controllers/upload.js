@@ -2,7 +2,7 @@
 const { ObjectId } = require('mongodb');
 const { MongoClient } = require("mongodb");
 const { GridFSBucket } = require("mongodb");
-
+const sharp = require('sharp')
 const { uploadFilesMiddleware } = require("../middleware/upload");
 const { url: _url, database: _database } = require("../config/db");
 const { authentifyOwnershipOnBucket, checkAccessToBucket } = require('../db/helpers/authentify')
@@ -179,8 +179,9 @@ const download = async (req, res) => {
 
     let downloadStream = bucket.openDownloadStreamByName(fileName);
 
+    let imageData = [];
     downloadStream.on("data", function (data) {
-      return res.status(200).write(data);
+      imageData.push(data);
     });
 
     downloadStream.on("error", function (err) {
@@ -188,7 +189,15 @@ const download = async (req, res) => {
     });
 
     downloadStream.on("end", () => {
-      return res.end();
+      res.contentType = "image/png"
+      imageData = Buffer.concat(imageData);
+      sharp(imageData).resize({ width: 400 })
+        .toBuffer()
+        .then((resizedImage) => {
+          const base64Image = `data:image/png;base64,${resizedImage.toString('base64')}`;
+          // use the resized image buffer here
+          return res.end(base64Image);
+        })
     });
   } catch (error) {
     return res.status(500).send({
