@@ -3,7 +3,7 @@ const { ObjectId } = require('mongodb');
 const { MongoClient } = require("mongodb");
 const { GridFSBucket } = require("mongodb");
 
-const upload = require("../middleware/upload");
+const { uploadFilesMiddleware } = require("../middleware/upload");
 const { url: _url, database: _database } = require("../config/db");
 const { authentifyOwnershipOnBucket, checkAccessToBucket } = require('../db/helpers/authentify')
 
@@ -33,7 +33,7 @@ const uploadFiles = async (req, res) => {
       return res.status(403).json({ error: "L'utilisateur n'est pas propriétaire de ce bucket" });
     }
 
-    await upload(req, res)
+    await uploadFilesMiddleware(req, res)
 
     // Vérifier l'envoi de 1 à 10 photos
     if (req.files.length <= 0) {

@@ -1,9 +1,7 @@
 const multer = require("multer");
 const { promisify } = require("util");
 const { GridFsStorage } = require("multer-gridfs-storage");
-
 const { url, database } = require("../config/db");
-
 
 const storage = new GridFsStorage({
   url: url + database,
@@ -22,15 +20,20 @@ const storage = new GridFsStorage({
           userID: req.user.id,
           sharedUsers: [],
         },
+        uploadDate: new Date(),
       };
     } catch (error) {
       console.log('error in storage upload', error)
     }
-
   }
 });
 
 
-const uploadFiles = multer({ storage: storage }).array("file", 10);
-const uploadFilesMiddleware = promisify(uploadFiles);
-module.exports = uploadFilesMiddleware;
+const uploadFilesMiddleware = promisify(multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024
+  },
+}).array("file", 10))
+
+module.exports = { uploadFilesMiddleware };
